@@ -39,7 +39,7 @@ macro_rules! map_opt_prop {
         let val = $obj.get(&mut $cx, $prop);
 
         if let Ok(val) = val {
-            $tobj.set(&mut $cx, $tprop, val);
+            $tobj.set(&mut $cx, $tprop, val)?;
         }
     }};
 }

@@ -50,8 +50,7 @@ pub fn verify_presentation(mut cx: FunctionContext) -> JsResult<JsValue> {
 
     let ldpo: LinkedDataProofOptions = throws!(cx, neon_serde::from_value(&mut cx, ldpo.upcast()))?;
 
-    let mut vp = prop!(cx, options, "presentation", VerifiablePresentation);
-    let key = prop!(cx, suite, "key", JWK);
+    let vp = prop!(cx, options, "presentation", VerifiablePresentation);
 
     throws!(cx, vp.validate_unsigned())?;
 
