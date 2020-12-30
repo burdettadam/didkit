@@ -1,4 +1,8 @@
+use core::future::Future;
+
+use js_sys::Promise;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::future_to_promise;
 
 use ssi::error::Error;
 use ssi::jwk::JWK;
@@ -11,8 +15,17 @@ pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 fn map_jsvalue(result: Result<String, Error>) -> Result<String, JsValue> {
     match result {
         Ok(string) => Ok(string),
-        Err(err) => Err("an error occurred".into()),
+        Err(err) => Err(err.to_string().into()),
     }
+}
+
+fn map_async_jsvalue(future: impl Future<Output = Result<String, Error>> + 'static) -> Promise {
+    future_to_promise(async {
+        match future.await {
+            Ok(string) => Ok(string.into()),
+            Err(err) => Err(err.to_string().into()),
+        }
+    })
 }
 
 #[wasm_bindgen]
@@ -68,7 +81,7 @@ pub fn keyToVerificationMethod(jwk: String) -> Result<String, JsValue> {
         not(feature = "verify")
     )
 ))]
-fn issue_credential(
+async fn issue_credential(
     credential: String,
     linked_data_proof_options: String,
     key: String,
@@ -76,7 +89,7 @@ fn issue_credential(
     let mut credential = VerifiableCredential::from_json_unsigned(&credential)?;
     let key: JWK = serde_json::from_str(&key)?;
     let options: LinkedDataProofOptions = serde_json::from_str(&linked_data_proof_options)?;
-    let proof = credential.generate_proof(&key, &options)?;
+    let proof = credential.generate_proof(&key, &options).await?;
     credential.add_proof(proof);
     let vc_json = serde_json::to_string(&credential)?;
     Ok(vc_json)
@@ -97,8 +110,8 @@ pub fn issueCredential(
     credential: String,
     linked_data_proof_options: String,
     key: String,
-) -> Result<String, JsValue> {
-    map_jsvalue(issue_credential(credential, linked_data_proof_options, key))
+) -> Promise {
+    map_async_jsvalue(issue_credential(credential, linked_data_proof_options, key))
 }
 
 #[cfg(any(
@@ -110,10 +123,10 @@ pub fn issueCredential(
         not(feature = "verify")
     )
 ))]
-fn verify_credential(vc: String, linked_data_proof_options: String) -> Result<String, Error> {
+async fn verify_credential(vc: String, linked_data_proof_options: String) -> Result<String, Error> {
     let vc = VerifiableCredential::from_json_unsigned(&vc)?;
     let options: LinkedDataProofOptions = serde_json::from_str(&linked_data_proof_options)?;
-    let result = vc.verify(Some(options));
+    let result = vc.verify(Some(options)).await;
     let result_json = serde_json::to_string(&result)?;
     Ok(result_json)
 }
@@ -129,8 +142,8 @@ fn verify_credential(vc: String, linked_data_proof_options: String) -> Result<St
         not(feature = "verify")
     )
 ))]
-pub fn verifyCredential(vc: String, linked_data_proof_options: String) -> Result<String, JsValue> {
-    map_jsvalue(verify_credential(vc, linked_data_proof_options))
+pub fn verifyCredential(vc: String, linked_data_proof_options: String) -> Promise {
+    map_async_jsvalue(verify_credential(vc, linked_data_proof_options))
 }
 
 #[cfg(any(
@@ -142,7 +155,7 @@ pub fn verifyCredential(vc: String, linked_data_proof_options: String) -> Result
         not(feature = "verify")
     )
 ))]
-fn issue_presentation(
+async fn issue_presentation(
     presentation: String,
     linked_data_proof_options: String,
     key: String,
@@ -150,7 +163,7 @@ fn issue_presentation(
     let mut presentation = VerifiablePresentation::from_json_unsigned(&presentation)?;
     let key: JWK = serde_json::from_str(&key)?;
     let options: LinkedDataProofOptions = serde_json::from_str(&linked_data_proof_options)?;
-    let proof = presentation.generate_proof(&key, &options)?;
+    let proof = presentation.generate_proof(&key, &options).await?;
     presentation.add_proof(proof);
     let vp_json = serde_json::to_string(&presentation)?;
     Ok(vp_json)
@@ -171,8 +184,8 @@ pub fn issuePresentation(
     presentation: String,
     linked_data_proof_options: String,
     key: String,
-) -> Result<String, JsValue> {
-    map_jsvalue(issue_presentation(
+) -> Promise {
+    map_async_jsvalue(issue_presentation(
         presentation,
         linked_data_proof_options,
         key,
@@ -188,10 +201,13 @@ pub fn issuePresentation(
         not(feature = "verify")
     )
 ))]
-fn verify_presentation(vp: String, linked_data_proof_options: String) -> Result<String, Error> {
+async fn verify_presentation(
+    vp: String,
+    linked_data_proof_options: String,
+) -> Result<String, Error> {
     let vp = VerifiablePresentation::from_json_unsigned(&vp)?;
     let options: LinkedDataProofOptions = serde_json::from_str(&linked_data_proof_options)?;
-    let result = vp.verify(Some(options));
+    let result = vp.verify(Some(options)).await;
     let result_json = serde_json::to_string(&result)?;
     Ok(result_json)
 }
@@ -207,9 +223,6 @@ fn verify_presentation(vp: String, linked_data_proof_options: String) -> Result<
         not(feature = "verify")
     )
 ))]
-pub fn verifyPresentation(
-    vp: String,
-    linked_data_proof_options: String,
-) -> Result<String, JsValue> {
-    map_jsvalue(verify_presentation(vp, linked_data_proof_options))
+pub fn verifyPresentation(vp: String, linked_data_proof_options: String) -> Promise {
+    map_async_jsvalue(verify_presentation(vp, linked_data_proof_options))
 }
