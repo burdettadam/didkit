@@ -1,3 +1,4 @@
+use async_std::task::block_on;
 use neon::prelude::*;
 
 use ssi::jwk::JWK;
@@ -39,7 +40,7 @@ pub fn issue_credential(mut cx: FunctionContext) -> JsResult<JsValue> {
 
     throws!(cx, credential.validate_unsigned())?;
 
-    let proof = throws!(cx, credential.generate_proof(&key, &options))?;
+    let proof = throws!(cx, block_on(credential.generate_proof(&key, &options)))?;
     credential.add_proof(proof);
 
     let vc = throws!(cx, neon_serde::to_value(&mut cx, &credential))?;
@@ -52,7 +53,7 @@ pub fn verify_credential(mut cx: FunctionContext) -> JsResult<JsValue> {
 
     throws!(cx, vc.validate_unsigned())?;
 
-    let result = vc.verify(Some(options));
+    let result = block_on(vc.verify(Some(options)));
     let result = throws!(cx, neon_serde::to_value(&mut cx, &result))?;
     Ok(result)
 }
@@ -64,7 +65,7 @@ pub fn issue_presentation(mut cx: FunctionContext) -> JsResult<JsValue> {
 
     throws!(cx, presentation.validate_unsigned())?;
 
-    let proof = throws!(cx, presentation.generate_proof(&key, &options))?;
+    let proof = throws!(cx, block_on(presentation.generate_proof(&key, &options)))?;
     presentation.add_proof(proof);
 
     let vp = throws!(cx, neon_serde::to_value(&mut cx, &presentation))?;
@@ -77,7 +78,7 @@ pub fn verify_presentation(mut cx: FunctionContext) -> JsResult<JsValue> {
 
     throws!(cx, vp.validate_unsigned())?;
 
-    let result = vp.verify(Some(options));
+    let result = block_on(vp.verify(Some(options)));
     let result = throws!(cx, neon_serde::to_value(&mut cx, &result))?;
     Ok(result)
 }
